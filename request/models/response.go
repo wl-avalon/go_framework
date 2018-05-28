@@ -14,22 +14,28 @@ type errorContent struct{
 type data interface{}
 
 type Response struct{
-	init		bool
-	httpCode	string
-	error		errorContent
-	data		data
-	responseCh	chan interface{}
+	init			bool
+	httpCode		string
+	err				error
+	data			data
+	responseCh		chan interface{}
+	responseErrCh	chan error
 }
 
 func NewResponse() (*Response, error) {
-	response 			:= new(Response)
-	response.init 		= false
-	response.responseCh	= make(chan interface{})
+	response 				:= new(Response)
+	response.init			= false
+	response.responseCh		= make(chan interface{})
+	response.responseErrCh	= make(chan error)
 	return response, nil
 }
 
 func (response *Response) GetResponseChannel() chan interface{} {
 	return response.responseCh
+}
+
+func (response *Response) GetResponseErrorChannel() chan error {
+	return response.responseErrCh
 }
 
 func (response *Response) Get(key string) (interface{}, error) {
@@ -50,12 +56,15 @@ func (response *Response) Get(key string) (interface{}, error) {
 func (response *Response) waitResponse() error {
 	select {
 	case body := <-response.responseCh:
-		response.init = true
-		err := json.Unmarshal([]byte(body.(string)), &response.data)
+		err :=json.Unmarshal([]byte(body.(string)), &response.data)
 		if err != nil {
-			err := errors.New("返回值json反序列化失败,body is:" + body.(string))
+			response.err = errors.New("返回值无法按json解析")
 			return err
 		}
+		response.init = true
+		return nil
+	case err := <-response.responseErrCh:
+		response.err = err
+		return err
 	}
-	return nil
 }
