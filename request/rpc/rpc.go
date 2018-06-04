@@ -35,7 +35,8 @@ func HttpRequest(request *models.Request, response *models.Response) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonParams)))
+	reqBody 	:= strings.NewReader(string(jsonParams))
+	req, err 	:= http.NewRequest("POST", url, reqBody)
 	if err != nil {
 		responseErrCh <- err
 		return err
@@ -47,7 +48,6 @@ func HttpRequest(request *models.Request, response *models.Response) error {
 		responseErrCh <- err
 		return err
 	}
-
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)

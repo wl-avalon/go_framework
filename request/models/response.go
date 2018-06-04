@@ -25,7 +25,7 @@ type Response struct{
 func NewResponse() (*Response, error) {
 	response 				:= new(Response)
 	response.init			= false
-	response.responseCh		= make(chan interface{})
+	response.responseCh		= make(chan interface{}, 1)
 	response.responseErrCh	= make(chan error)
 	return response, nil
 }
@@ -39,7 +39,7 @@ func (response *Response) GetResponseErrorChannel() chan error {
 }
 
 func (response *Response) Get(key string) (interface{}, error) {
-	if !response.init {
+	if !response.init  {
 		err := response.waitResponse()
 		if err != nil {
 			return nil, err
@@ -54,6 +54,10 @@ func (response *Response) Get(key string) (interface{}, error) {
 }
 
 func (response *Response) waitResponse() error {
+	defer func () {
+		close(response.responseErrCh)
+		close(response.responseCh)
+	} ()
 	select {
 	case body := <-response.responseCh:
 		err :=json.Unmarshal([]byte(body.(string)), &response.data)
@@ -65,6 +69,7 @@ func (response *Response) waitResponse() error {
 		return nil
 	case err := <-response.responseErrCh:
 		response.err = err
+		response.init = true
 		return err
 	}
 }
